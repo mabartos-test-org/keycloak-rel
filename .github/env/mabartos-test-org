@@ -1,0 +1,12 @@
+gh-org=mabartos-test-org
+
+mvn-releases-url=https://maven.pkg.github.com/keycloak-rel-testing/maven
+mvn-snapshots-url=https://maven.pkg.github.com/keycloak-rel-testing/maven
+
+quay-org=keycloaktesting
+docker-org=keycloaktesting
+
+community-operators-org=mabartos-test-org
+prod-operators-org=mabartos-test-org
+operatorhub-author-email=196924137+mabartos-release2[bot]@users.noreply.github.com
+operatorhub-author-name=mabartos-release2[bot]

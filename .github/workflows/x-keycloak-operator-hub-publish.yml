@@ -1,0 +1,170 @@
+name: X Keycloak Operator Hub publish
+
+on:
+  workflow_call:
+    inputs:
+      quay-org:
+        required: true
+        type: string
+      community-operators-org:
+        required: true
+        type: string
+      prod-operators-org:
+        required: true
+        type: string
+      mvn-url:
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
+      previous-version:
+        required: true
+        type: string
+      operatorhub-author-email:
+        required: true
+        type: string
+      operatorhub-author-name:
+        required: true
+        type: string
+    secrets:
+      RELEASE_BOT_PRIVATE_KEY:
+        required: true
+      MVN_USERNAME:
+        required: true
+      MVN_TOKEN:
+        required: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          repository: keycloak/keycloak
+          ref: ${{ inputs.version }}
+          path: keycloak
+
+      - name: Build
+        env:
+          MAVEN_ID: kc-rel-repository
+          MAVEN_URL: ${{ inputs.mvn-url }}
+          MAVEN_USERNAME: ${{ secrets.MVN_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.MVN_TOKEN }}
+        working-directory: keycloak
+        run: |
+          ./mvnw -B clean package \
+              -s ./.github/mvn-rel-settings.xml \
+              -f operator/pom.xml \
+              -DskipTests \
+              -Dquarkus.container-image.image=quay.io/${{ inputs.quay-org }}/keycloak-operator:${{ inputs.version }} \
+              -Dquarkus.container-image.build=true \
+              -Dkc.operator.keycloak.image=quay.io/${{ inputs.quay-org }}/keycloak:${{ inputs.version }}
+
+      - name: Install Yq
+        working-directory: keycloak
+        run: sudo snap install yq
+
+      - name: Create OLM Bundle
+        working-directory: keycloak
+        run: |
+          cd operator && ./scripts/create-olm-bundle.sh ${{ inputs.version }} ${{ inputs.previous-version }} quay.io/${{ inputs.quay-org }}/keycloak-operator
+
+      - name: Compress OLM Bundle
+        working-directory: keycloak
+        run: |
+          tar --use-compress-program zstd -cf olm-bundle-keycloak-${{ inputs.version }}.tzst \
+          --exclude '*.tar.gz' \
+          -C operator/olm/${{ inputs.version }} .
+
+      - name: Upload Keycloak OLM bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: olm-bundle-keycloak
+          path: keycloak/olm-bundle-keycloak-${{ inputs.version }}.tzst
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [build]
+    strategy:
+      matrix:
+        type: [ community, prod ]
+    steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Download Keycloak OLM bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: olm-bundle-keycloak
+
+      - name: Set custom variables
+        run: |
+          if [[ "${{ matrix.type }}" == "community" ]]; then
+            REPO_ORG="${{ inputs.community-operators-org }}"
+            REPO_NAME="community-operators"
+          else
+            REPO_ORG="${{ inputs.prod-operators-org }}"
+            REPO_NAME="community-operators-prod"
+          fi
+
+          echo "repository-org=$REPO_ORG" >> $GITHUB_ENV
+          echo "repository-name=$REPO_NAME" >> $GITHUB_ENV
+          echo "repository-url=https://github.com/$REPO_ORG/$REPO_NAME.git" >> $GITHUB_ENV
+
+      - name: Clone community-operators
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/${{ env.repository-name }}
+          path: community-operators
+          token: ${{ steps.generate-token.outputs.token }}
+          persist-credentials: false
+
+      - name: Push changes to particular operators fork
+        working-directory: community-operators
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+        run: |
+          git remote set-url origin $(git config remote.origin.url | sed "s/github.com/x-access-token:${{ steps.generate-token.outputs.token }}@github.com/g")
+          git remote add upstream ${{ env.repository-url }}
+          git fetch upstream
+          
+          git checkout upstream/main -B ${{ inputs.version }}
+          
+          mkdir -p operators/keycloak-operator/${{ inputs.version }}
+          tar -C operators/keycloak-operator/${{ inputs.version }} --use-compress-program="zstd -d" -xf ../olm-bundle-keycloak-${{ inputs.version }}.tzst
+          
+          git add operators/
+          
+          git config user.name '${{ inputs.operatorhub-author-name }}'
+          git config user.email '${{ inputs.operatorhub-author-email }}'
+          
+          git commit -s -m "Keycloak Operator ${{ inputs.version }}"
+          
+          git push -f origin ${{ inputs.version }}
+
+      - name: Automatic PR opening
+        working-directory: community-operators
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+        run: |
+          gh pr create --title "operator keycloak-operator (${{ inputs.version }})" --repo ${{ env.repository-url }} --base main -F docs/pull_request_template.md --head ${{ env.repository-org }}:${{ inputs.version }}
