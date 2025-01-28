@@ -116,9 +116,6 @@ jobs:
           app-id: ${{ vars.MABARTOS_RELEASE_APP_ID }}
           private-key: ${{ secrets.MABARTOS_RELEASE_TOKEN }}
           owner: ${{ github.repository_owner }}
-          repositories: |
-            community-operators
-            community-operators-prod
 
       #- name: Download Keycloak OLM bundle
       #  uses: actions/download-artifact@v4
