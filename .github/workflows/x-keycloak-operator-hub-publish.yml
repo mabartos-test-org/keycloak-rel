@@ -147,7 +147,7 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
-          git remote set-url origin $(git config remote.origin.url | sed "s/github.com/mabartos-release:${{ steps.generate-token.outputs.token }}@github.com/g")
+          git remote set-url origin $(git config remote.origin.url | sed "s/github.com/mabartos-release[bot]:${{ steps.generate-token.outputs.token }}@github.com/g")
           git remote add upstream ${{ env.repository_url }}
           git fetch upstream
           
