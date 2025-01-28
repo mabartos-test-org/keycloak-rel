@@ -158,14 +158,15 @@ jobs:
           touch test
           echo "test" > test
           git add test
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
           
-          git config user.email 196669247+mabartos-release[bot]@users.noreply.github.com
-          git config user.name "mabartos-release[bot]"
           
           git commit -s -m "Keycloak Operator ${{ inputs.version }}"
           
           git push -f origin ${{ inputs.version }}
-
+#git config user.email 196669247+mabartos-release[bot]@users.noreply.github.com
+        #          git config user.name "mabartos-release[bot]"
 # git add operators/
         #tar -C operators/keycloak-operator/${{ inputs.version }} --use-compress-program="zstd -d" -xf ../olm-bundle-keycloak-${{ inputs.version }}.tzst
 
