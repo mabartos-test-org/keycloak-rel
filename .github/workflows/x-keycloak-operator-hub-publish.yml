@@ -115,6 +115,10 @@ jobs:
         with:
           app-id: ${{ vars.MABARTOS_RELEASE_APP_ID }}
           private-key: ${{ secrets.MABARTOS_RELEASE_TOKEN }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            community-operators
+            community-operators-prod
 
       #- name: Download Keycloak OLM bundle
       #  uses: actions/download-artifact@v4
@@ -141,13 +145,14 @@ jobs:
           repository: ${{ env.repository_org }}/${{ env.repository_name }}
           path: community-operators
           token: ${{ steps.generate-token.outputs.token }}
+          persist-credentials: false
 
       - name: Push changes to particular Community operators fork
         working-directory: community-operators
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
-
+          git remote set-url origin https://x-access-token:${{ steps.generate-token.outputs.token }}@github.com/${{ env.repository_org }}/${{ env.repository_name }}.git
           git remote add upstream ${{ env.repository_url }}
           git fetch upstream
           
@@ -159,8 +164,8 @@ jobs:
           echo "test" > test
           git add test
           
-          git config user.email 196669247+mabartos-release[bot]@users.noreply.github.com
-          git config user.name "mabartos-release[bot]"
+          git config user.name 'mabartos-release[bot]'
+          git config user.email '196669247+mabartos-release[bot]@users.noreply.github.com'
           
           git commit -s -m "Keycloak Operator ${{ inputs.version }}"
           
