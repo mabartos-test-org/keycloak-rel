@@ -48,6 +48,7 @@ jobs:
       operatorhub-author-email: ${{ needs.env.outputs.operatorhub-author-email }}
       operatorhub-author-name: ${{ needs.env.outputs.operatorhub-author-name }}
     secrets:
+      MABARTOS_RELEASE_TOKEN: ${{ secrets.MABARTOS_RELEASE_TOKEN }}
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
       MVN_USERNAME: ${{ secrets.MVN_USERNAME }}
       MVN_TOKEN: ${{ secrets.MVN_TOKEN }}
