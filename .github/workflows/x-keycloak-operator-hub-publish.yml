@@ -149,7 +149,7 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
-          git remote set-url origin https://x-access-token:${{ steps.generate-token.outputs.token }}@github.com/${{ env.repository_org }}/${{ env.repository_name }}.git
+          git remote set-url origin $(git config remote.origin.url | sed "s/github.com/x-access-token:${{ steps.generate-token.outputs.token }}@github.com/g")
           git remote add upstream ${{ env.repository_url }}
           git fetch upstream
           
@@ -170,6 +170,7 @@ jobs:
 #git config user.email 196669247+mabartos-release[bot]@users.noreply.github.com
         #          git config user.name "mabartos-release[bot]"
 # git add operators/
+          #           git remote set-url origin https://x-access-token:${{ steps.generate-token.outputs.token }}@github.com/${{ env.repository_org }}/${{ env.repository_name }}.git
             #   git remote set-url origin https://x-access-token:${{ steps.generate-token.outputs.token }}@github.com/${{ env.repository_org }}/${{ env.repository_name }}.git
          #      git remote set-url origin $(git config remote.origin.url | sed "s/github.com/x-access-token:${{ steps.generate-token.outputs.token }}@github.com/g")
         #tar -C operators/keycloak-operator/${{ inputs.version }} --use-compress-program="zstd -d" -xf ../olm-bundle-keycloak-${{ inputs.version }}.tzst
